@@ -3,7 +3,7 @@ Internal-consistency guard for the FROZEN golden values (build infrastructure).
 
 These checks are IMPLEMENTATION-INDEPENDENT: they assert that the frozen golden
 constants agree with each other and with objective ground truth (overlap counts vs
-actual set intersections; window counts vs the grid vs the coordinate lists). So they
+actual set intersections; window counts vs the 1D slot list vs the index lists). So they
 PASS at Phase 0 with no implementation, and FAIL LOUDLY if the golden module is
 internally contradictory — which would otherwise silently make a downstream module
 unsatisfiable (the impl can't edit a frozen test, so a wrong golden value = a hard,
@@ -15,10 +15,6 @@ Not part of any module's behavioral contract — added deliberately to catch bad
 from __future__ import annotations
 
 import tests.golden as G
-
-
-def _ones(grid):
-    return sum(1 for row in grid for c in row if c)
 
 
 def test_overlap_counts_are_true_intersections():
@@ -62,42 +58,46 @@ def test_distances_consistent_and_in_range():
     assert checks > 0, "distance tables present but empty"
 
 
-def test_window_counts_match_grid_and_coords():
-    """For any *_BINARY_GRID, the occupied/vacant count constants and coordinate lists
-    must match the grid; each coordinate must actually be an occupied/vacant cell."""
-    grid = getattr(G, "WINDOW_BINARY_GRID", None)
-    if grid is None:
+def test_window_counts_match_slots_and_indices():
+    """SchellingChords is ONE-DIMENSIONAL: the window is a flat WINDOW_SLOTS list (0/1 per
+    beat), and a beat-slot is addressed by ONE integer index. The occupied/vacant count
+    constants and index lists must match the slots; each index must actually be an
+    occupied/vacant beat. (Rejects a 2D-grid framing of the window.)"""
+    slots = getattr(G, "WINDOW_SLOTS", None)
+    if slots is None:
         return
-    cells = sum(len(row) for row in grid)
-    occ = _ones(grid)
-    vac = cells - occ
+    assert all(s in (0, 1, True, False) for s in slots), \
+        "WINDOW_SLOTS must be a FLAT list of 0/1 per beat (1D) — not a 2D grid of rows"
+    total = len(slots)
+    occ = sum(1 for s in slots if s)
+    vac = total - occ
     checks = 0
 
     def check(name, expected):
         nonlocal checks
         if hasattr(G, name):
-            assert getattr(G, name) == expected, f"{name}={getattr(G, name)} but grid says {expected}"
+            assert getattr(G, name) == expected, f"{name}={getattr(G, name)} but slots say {expected}"
             checks += 1
 
-    check("WINDOW_TOTAL_CELLS", cells)
-    check("WINDOW_OCCUPIED_CELLS", occ)
-    check("WINDOW_VACANT_CELLS", vac)
+    check("WINDOW_TOTAL_SLOTS", total)
+    check("WINDOW_OCCUPIED_SLOTS", occ)
+    check("WINDOW_VACANT_SLOTS", vac)
 
-    occ_coords = getattr(G, "WINDOW_OCCUPIED_COORDS", None)
-    vac_coords = getattr(G, "WINDOW_VACANT_COORDS", None)
-    if occ_coords is not None:
-        assert len(occ_coords) == occ, f"OCCUPIED_COORDS has {len(occ_coords)}, grid has {occ} occupied"
-        for r, c in occ_coords:
-            assert grid[r][c], f"OCCUPIED coord ({r},{c}) is vacant in the grid"
+    occ_idx = getattr(G, "WINDOW_OCCUPIED_INDICES", None)
+    vac_idx = getattr(G, "WINDOW_VACANT_INDICES", None)
+    if occ_idx is not None:
+        assert len(occ_idx) == occ, f"OCCUPIED_INDICES has {len(occ_idx)}, slots have {occ} occupied"
+        for i in occ_idx:
+            assert slots[i], f"OCCUPIED index {i} is vacant in WINDOW_SLOTS"
         checks += 1
-    if vac_coords is not None:
-        assert len(vac_coords) == vac, f"VACANT_COORDS has {len(vac_coords)}, grid has {vac} vacant"
-        for r, c in vac_coords:
-            assert not grid[r][c], f"VACANT coord ({r},{c}) is occupied in the grid"
+    if vac_idx is not None:
+        assert len(vac_idx) == vac, f"VACANT_INDICES has {len(vac_idx)}, slots have {vac} vacant"
+        for i in vac_idx:
+            assert not slots[i], f"VACANT index {i} is occupied in WINDOW_SLOTS"
         checks += 1
-    if occ_coords is not None and vac_coords is not None:
-        assert not (set(map(tuple, occ_coords)) & set(map(tuple, vac_coords))), \
-            "a coordinate is listed as BOTH occupied and vacant"
+    if occ_idx is not None and vac_idx is not None:
+        assert not (set(occ_idx) & set(vac_idx)), \
+            "an index is listed as BOTH occupied and vacant"
         checks += 1
 
-    assert checks > 0, "WINDOW_BINARY_GRID present but no count/coord constants to validate"
+    assert checks > 0, "WINDOW_SLOTS present but no count/index constants to validate"
