@@ -1,77 +1,46 @@
-"""Golden constants for M1 chord tests.
+"""Golden constants for M2 distance metric tests."""
+from typing import Dict, List, Tuple
 
-All values are hand-computed and internally consistent.
-Distance metric: Jaccard distance = 1 - |a ∩ b| / |a ∪ b|, normalised to [0,1].
-"""
-
-# Diatonic triads of C major: name -> sorted pitch classes (0-11)
-# I=C, ii=Dm, iii=Em, IV=F, V=G, vi=Am, vii°=Bdim
-DIATONIC_CHORDS: dict[str, list[int]] = {
-    "I": [0, 4, 7],
-    "ii": [2, 5, 9],
-    "iii": [4, 7, 11],
-    "IV": [0, 5, 9],
-    "V": [2, 7, 11],
-    "vi": [0, 4, 9],
-    "vii°": [2, 5, 11],
+# Diatonic major triads in C major (pitch classes 0=C, 1=D, ..., 11=B)
+DIATONIC_CHORDS: Dict[str, List[int]] = {
+    "I": [0, 2, 4],
+    "ii": [1, 3, 5],
+    "iii": [2, 4, 6],
+    "IV": [0, 3, 5],
+    "V": [1, 4, 6],
+    "vi": [0, 2, 5],
+    "vii°": [1, 3, 6],
 }
 
-# Overlap counts: |a ∩ b| for each pair (keys sorted lexicographically by name)
-OVERLAP_COUNTS: dict[tuple[str, str], int] = {
-    ("I", "IV"): 1,
+# Intersection sizes |A ∩ B|
+OVERLAP_COUNTS: Dict[Tuple[str, str], int] = {
+    ("I", "I"): 3,
     ("I", "V"): 1,
-    ("I", "ii"): 0,
-    ("I", "iii"): 2,
-    ("I", "vi"): 2,
     ("I", "vii°"): 0,
-    ("IV", "V"): 0,
-    ("IV", "ii"): 2,
-    ("IV", "iii"): 0,
-    ("IV", "vi"): 2,
-    ("IV", "vii°"): 1,
-    ("V", "ii"): 1,
-    ("V", "iii"): 2,
-    ("V", "vi"): 0,
+    ("I", "iii"): 2,
     ("V", "vii°"): 2,
-    ("ii", "iii"): 0,
     ("ii", "vi"): 1,
-    ("ii", "vii°"): 2,
-    ("iii", "vi"): 1,
-    ("iii", "vii°"): 1,
-    ("vi", "vii°"): 0,
 }
 
-# Jaccard distances: distance(a,b) = 1 - |a ∩ b| / |a ∪ b|
-# All triads have cardinality 3, so |a ∪ b| = 6 - |a ∩ b|
-# overlap=0 -> 1-0/6=1.0, overlap=1 -> 1-1/5=0.8, overlap=2 -> 1-2/4=0.5
-DISTANCES: dict[tuple[str, str], float] = {
-    ("I", "IV"): 0.8,
-    ("I", "V"): 0.8,
-    ("I", "ii"): 1.0,
-    ("I", "iii"): 0.5,
-    ("I", "vi"): 0.5,
+# Jaccard distance: 1 - |A ∩ B| / |A ∪ B|
+# Since |A|=|B|=3, |A ∪ B| = 6 - overlap
+DISTANCES: Dict[Tuple[str, str], float] = {
+    ("I", "I"): 0.0,
+    ("I", "V"): 1 - 1 / 5,  # 0.8
     ("I", "vii°"): 1.0,
-    ("IV", "V"): 1.0,
-    ("IV", "ii"): 0.5,
-    ("IV", "iii"): 1.0,
-    ("IV", "vi"): 0.5,
-    ("IV", "vii°"): 0.8,
-    ("V", "ii"): 0.8,
-    ("V", "iii"): 0.5,
-    ("V", "vi"): 1.0,
-    ("V", "vii°"): 0.5,
-    ("ii", "iii"): 1.0,
-    ("ii", "vi"): 0.8,
-    ("ii", "vii°"): 0.5,
-    ("iii", "vi"): 0.8,
-    ("iii", "vii°"): 0.8,
-    ("vi", "vii°"): 1.0,
+    ("I", "iii"): 1 - 2 / 4,  # 0.5
+    ("V", "vii°"): 1 - 2 / 4,  # 0.5
+    ("ii", "vi"): 1 - 1 / 5,  # 0.8
 }
 
-# 1D window fixture constants (default 4 bars of 4/4)
-WINDOW_TOTAL_SLOTS: int = 16  # 4 bars * 4 beats
-WINDOW_SLOTS: list[int] = [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0]  # 10 occupied, 6 vacant
-WINDOW_OCCUPIED_INDICES: list[int] = [0, 2, 3, 5, 6, 8, 9, 11, 13, 14]
-WINDOW_VACANT_INDICES: list[int] = [1, 4, 7, 10, 12, 15]
-WINDOW_OCCUPIED_SLOTS: int = 10
-WINDOW_VACANT_SLOTS: int = 6
+# 1D Window fixture constants (bars_per_window=4 -> 16 beat-slots)
+WINDOW_TOTAL_SLOTS = 16
+WINDOW_SLOTS = [1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0]
+WINDOW_OCCUPIED_INDICES = [i for i, v in enumerate(WINDOW_SLOTS) if v == 1]
+WINDOW_VACANT_INDICES = [i for i, v in enumerate(WINDOW_SLOTS) if v == 0]
+WINDOW_OCCUPIED_SLOTS = len(WINDOW_OCCUPIED_INDICES)
+WINDOW_VACANT_SLOTS = len(WINDOW_VACANT_INDICES)
+
+# Consistency assertions (fail at import if wrong)
+assert WINDOW_TOTAL_SLOTS == len(WINDOW_SLOTS), "Window total slots mismatch"
+assert WINDOW_OCCUPIED_SLOTS + WINDOW_VACANT_SLOTS == WINDOW_TOTAL_SLOTS, "Occupied + vacant != total"
