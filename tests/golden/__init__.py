@@ -1,33 +1,35 @@
-# Frozen golden values for SchellingChords M6 sonification tests.
-# All values are hand-derived and internally consistent.
+# tests/golden/__init__.py
+# Frozen golden values for SchellingChords M7.
+# All values are hand-computed, internally consistent, and 1D-aware.
 
-# Diatonic triads as sorted pitch-class sets (0..11)
-DIATONIC_CHORDS: dict[str, list[int]] = {
-    "C":  [0, 4, 7],
-    "Dm": [2, 5, 9],
-    "Em": [4, 7, 11],
+# Diatonic triads in C major (pitch classes 0..11, sorted)
+DIATONIC_CHORDS = {
+    "C": [0, 4, 7],
+    "F": [0, 5, 9],
+    "G": [2, 7, 11],
 }
 
 # Intersection sizes |A ∩ B|
-OVERLAP_COUNTS: dict[tuple[str, str], int] = {
-    ("C",  "C"):  3, ("C",  "Dm"): 0, ("C",  "Em"): 2,
-    ("Dm", "C"):  0, ("Dm", "Dm"): 3, ("Dm", "Em"): 0,
-    ("Em", "C"):  2, ("Em", "Dm"): 0, ("Em", "Em"): 3,
+OVERLAP_COUNTS = {
+    ("C", "F"): 1,
+    ("C", "G"): 1,
+    ("F", "G"): 0,
 }
 
 # Jaccard distance: 1 - |A ∩ B| / |A ∪ B|
-# Normalised to [0, 1] where identical -> 0.0 and disjoint -> 1.0
-DISTANCES: dict[tuple[str, str], float] = {
-    ("C",  "C"):  0.0, ("C",  "Dm"): 1.0, ("C",  "Em"): 0.5,
-    ("Dm", "C"):  1.0, ("Dm", "Dm"): 0.0, ("Dm", "Em"): 1.0,
-    ("Em", "C"):  0.5, ("Em", "Dm"): 1.0, ("Em", "Em"): 0.0,
+# C∪F={0,4,5,7,9} (5), C∩F={0} (1) -> 1 - 1/5 = 0.8
+# C∪G={0,2,4,7,11} (5), C∩G={7} (1) -> 1 - 1/5 = 0.8
+# F∪G={0,2,5,7,9,11} (6), F∩G={} (0) -> 1 - 0/6 = 1.0
+DISTANCES = {
+    ("C", "F"): 0.8,
+    ("C", "G"): 0.8,
+    ("F", "G"): 1.0,
 }
 
-# 1D window fixture constants
-# 4 bars * 4 beats/bar = 16 beat-slots
-WINDOW_TOTAL_SLOTS: int = 16
-# Flat list of 0/1 per beat. 1 = occupied chord, 0 = vacancy/rest
-WINDOW_SLOTS: list[int] = [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0]
-WINDOW_OCCUPIED_INDICES: list[int] = [0, 2, 5, 7, 10, 12]
-WINDOW_OCCUPIED_SLOTS: int = len(WINDOW_OCCUPIED_INDICES)
-# Invariant: WINDOW_OCCUPIED_SLOTS + (WINDOW_TOTAL_SLOTS - WINDOW_OCCUPIED_SLOTS) == WINDOW_TOTAL_SLOTS
+# 1D Window fixture constants (bars_per_window=4, vacancy_fraction=0.25)
+# The Schelling space is a single row of beat-slots. No width/height/grid.
+WINDOW_TOTAL_SLOTS = 16  # 4 bars * 4 beats/bar
+WINDOW_VACANT_SLOTS = 4  # 16 * 0.25
+WINDOW_OCCUPIED_SLOTS = 12  # 16 - 4
+WINDOW_SLOTS = [1] * 12 + [0] * 4  # flat list: 1=occupied chord, 0=vacant/rest
+WINDOW_OCCUPIED_INDICES = list(range(12))  # integer indices of occupied beats
