@@ -1,46 +1,39 @@
-"""Golden constants for M2 distance metric tests."""
-from typing import Dict, List, Tuple
+"""
+Golden constants for SchellingChords M1/M2/M3 consistency guards.
+All values are hand-computed and frozen. Implementation must satisfy these.
+"""
 
-# Diatonic major triads in C major (pitch classes 0=C, 1=D, ..., 11=B)
-DIATONIC_CHORDS: Dict[str, List[int]] = {
-    "I": [0, 2, 4],
-    "ii": [1, 3, 5],
-    "iii": [2, 4, 6],
-    "IV": [0, 3, 5],
-    "V": [1, 4, 6],
-    "vi": [0, 2, 5],
-    "vii°": [1, 3, 6],
+# Diatonic pitch-class sets (sorted, 0=C, 1=C#, ..., 11=B)
+DIATONIC_CHORDS: dict[str, list[int]] = {
+    "C":   [0, 4, 7],
+    "Dm":  [2, 5, 9],
+    "F":   [0, 5, 9],
+    "G":   [2, 7, 10],
+    "Bdim":[2, 5, 10],
 }
 
-# Intersection sizes |A ∩ B|
-OVERLAP_COUNTS: Dict[Tuple[str, str], int] = {
-    ("I", "I"): 3,
-    ("I", "V"): 1,
-    ("I", "vii°"): 0,
-    ("I", "iii"): 2,
-    ("V", "vii°"): 2,
-    ("ii", "vi"): 1,
+# Intersection sizes |a ∩ b| for selected pairs
+OVERLAP_COUNTS: dict[tuple[str, str], int] = {
+    ("C", "F"): 1,
+    ("C", "G"): 1,
+    ("F", "Bdim"): 1,
+    ("G", "Bdim"): 2,
+    ("C", "Bdim"): 0,
+    ("F", "Dm"): 2,
 }
 
-# Jaccard distance: 1 - |A ∩ B| / |A ∪ B|
-# Since |A|=|B|=3, |A ∪ B| = 6 - overlap
-DISTANCES: Dict[Tuple[str, str], float] = {
-    ("I", "I"): 0.0,
-    ("I", "V"): 1 - 1 / 5,  # 0.8
-    ("I", "vii°"): 1.0,
-    ("I", "iii"): 1 - 2 / 4,  # 0.5
-    ("V", "vii°"): 1 - 2 / 4,  # 0.5
-    ("ii", "vi"): 1 - 1 / 5,  # 0.8
+# Jaccard distance: distance(a, b) = 1 - |a ∩ b| / |a ∪ b|
+# Normalised to [0, 1]. Identical -> 0.0, Disjoint -> 1.0.
+# Hand-computed examples:
+#   C & F: 1 - 1/5 = 0.8
+#   F & Bdim: 1 - 1/5 = 0.8
+#   F & Dm: 1 - 2/4 = 0.5
+#   C & Bdim: 1 - 0/6 = 1.0
+DISTANCES: dict[tuple[str, str], float] = {
+    ("C", "F"): 0.8,
+    ("C", "G"): 0.8,
+    ("F", "Bdim"): 0.8,
+    ("G", "Bdim"): 0.5,
+    ("C", "Bdim"): 1.0,
+    ("F", "Dm"): 0.5,
 }
-
-# 1D Window fixture constants (bars_per_window=4 -> 16 beat-slots)
-WINDOW_TOTAL_SLOTS = 16
-WINDOW_SLOTS = [1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0]
-WINDOW_OCCUPIED_INDICES = [i for i, v in enumerate(WINDOW_SLOTS) if v == 1]
-WINDOW_VACANT_INDICES = [i for i, v in enumerate(WINDOW_SLOTS) if v == 0]
-WINDOW_OCCUPIED_SLOTS = len(WINDOW_OCCUPIED_INDICES)
-WINDOW_VACANT_SLOTS = len(WINDOW_VACANT_INDICES)
-
-# Consistency assertions (fail at import if wrong)
-assert WINDOW_TOTAL_SLOTS == len(WINDOW_SLOTS), "Window total slots mismatch"
-assert WINDOW_OCCUPIED_SLOTS + WINDOW_VACANT_SLOTS == WINDOW_TOTAL_SLOTS, "Occupied + vacant != total"
