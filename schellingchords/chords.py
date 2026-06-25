@@ -1,4 +1,4 @@
-from typing import FrozenSet, Tuple
+from typing import Any, Dict, FrozenSet, List, Tuple
 
 class Chord:
     def __init__(
@@ -19,7 +19,10 @@ class Chord:
         self._root = root
         self._quality = quality
         self._pitch_classes = pitch_classes
-        self._midi_voicing = tuple(midi % 12 for midi in midi_voicing)
+        # Preserve the actual MIDI note numbers (octave 4+); the mod-12 reduction
+        # is the *pitch_classes* set, kept separately. Reducing here would destroy
+        # octave information and collapse distinct voicings.
+        self._midi_voicing = tuple(midi_voicing)
 
     @property
     def name(self) -> str:
@@ -72,13 +75,19 @@ def diatonic_major() -> List[Chord]:
     return chords
 
 
-def VOCABULARIES() -> Dict[str, Any]:
-    return {
-        "diatonic_major": diatonic_major
-    }
+# Registry of named vocabularies, keyed by name -> factory callable.
+VOCABULARIES: Dict[str, Any] = {
+    "diatonic_major": diatonic_major,
+}
 
 
-def select_types(vocabulary: List[Chord], n: int, rng: object) -> List[Chord]:
-    if not (2 <= n <= len(vocabulary)):
-        raise ValueError("n must be in [2, len(vocabulary)]")
-    return list(rng.sample(vocabulary, n))
+def select_types(vocabulary: Any, n: int, rng: Any) -> List[Chord]:
+    """Select ``n`` distinct chords from a vocabulary.
+
+    ``vocabulary`` may be a factory callable (e.g. ``diatonic_major``) or an
+    iterable of chords; ``n`` must be in ``[2, len(vocabulary)]``.
+    """
+    chords = list(vocabulary()) if callable(vocabulary) else list(vocabulary)
+    if not (2 <= n <= len(chords)):
+        raise ValueError(f"n must be in [2, {len(chords)}]")
+    return list(rng.sample(chords, n))
