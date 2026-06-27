@@ -130,3 +130,48 @@ def region_count(
                 pass
 
     return region_count
+
+
+def stability_profile(history: List[List[Optional[str]]]) -> List[float]:
+    """
+    Calculate per-position settledness across the run.
+
+    For each position in the window, calculate the fraction of steps where the
+    chord at that position remained unchanged from the previous step.
+    The first step is always considered stable (settledness 1.0) for all positions.
+
+    Args:
+        history: A list of window states, one per step.
+
+    Returns:
+        A list of floats, one per position, representing the settledness score.
+    """
+    if not history:
+        return []
+
+    n_positions = len(history[0])
+    # Initialize settledness counts. Each position starts with 1.0 (stable at step 0).
+    settled_counts = [1.0] * n_positions
+    total_steps = len(history)
+
+    # If only one step, all are perfectly stable (1.0)
+    if total_steps <= 1:
+        return settled_counts
+
+    # Compare each step to the previous one
+    for step_idx in range(1, total_steps):
+        prev_window = history[step_idx - 1]
+        curr_window = history[step_idx]
+
+        for pos in range(n_positions):
+            prev_val = prev_window[pos]
+            curr_val = curr_window[pos]
+
+            # If the value at this position is the same as the previous step,
+            # it contributes to stability.
+            if prev_val == curr_val:
+                settled_counts[pos] += 1.0
+
+    # Normalize by total number of steps to get a fraction [0.0, 1.0]
+    profile = [count / total_steps for count in settled_counts]
+    return profile

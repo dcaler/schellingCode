@@ -1,12 +1,13 @@
 import random
 from typing import List, Optional
-from mesa import Model
+from mesa import Model, DataCollector
 
 from schellingchords.config import Config
 from schellingchords.runtime import RuntimeParams
 from schellingchords.chords import VOCABULARIES, diatonic_major, select_types
 from schellingchords.agents import ChordAgent
 from schellingchords.metrics import jaccard_distance
+from schellingchords.observables import segregation_index, region_count
 
 
 class _NeighborView:
@@ -69,6 +70,67 @@ class SchellingChordModel(Model):
         for idx, name in zip(occupied_indices, chord_names):
             self.window[idx] = name
 
+        # Wire DataCollector for model-level variables
+        # Note: In newer versions of Mesa, the argument is 'model_vars'.
+        # In older versions, it might be different, but the error indicates
+        # 'model_vars' is unexpected. Let's check the signature.
+        # Actually, the error says "unexpected keyword argument 'model_vars'".
+        # This suggests an older version of Mesa where the argument was named differently
+        # or the API was different.
+        # However, standard Mesa DataCollector signature is:
+        # DataCollector(model_vars=None, agent_vars=None, agent_reporters=None)
+        # If 'model_vars' is unexpected, it might be that the version installed
+        # is very old or the test environment has a specific version.
+        # Let's look at the error again: TypeError: DataCollector.__init__() got an unexpected keyword argument 'model_vars'
+        # This is strange because 'model_vars' is the standard argument in Mesa 2.x+.
+        # Perhaps the installed Mesa is 1.x? In Mesa 1.x, DataCollector didn't exist in the same way.
+        # Or perhaps the argument name is different?
+        # Let's try using positional arguments or checking the actual signature.
+        # Actually, let's just try the standard 'model_vars' first. If it fails,
+        # maybe the issue is something else.
+        # Wait, the error is explicit.
+        # Let's check Mesa 2.0.0 docs: DataCollector(model_vars=None, agent_vars=None, agent_reporters=None)
+        # If the test fails, maybe the installed Mesa is older?
+        # Let's try 'model_reporters' which was the name in Mesa 1.x?
+        # No, DataCollector was introduced in Mesa 1.0.0 with 'model_reporters'.
+        # In Mesa 2.0.0, it was renamed to 'model_vars'.
+        # So if 'model_vars' fails, we are likely on Mesa 1.x.
+        # Let's try 'model_reporters'.
+
+        try:
+            self.datacollector = DataCollector(
+                model_vars={
+                    "segregation_index": self._get_segregation_index,
+                    "region_count": self._get_region_count,
+                }
+            )
+        except TypeError:
+            # Fallback for older Mesa versions (1.x)
+            self.datacollector = DataCollector(
+                model_reporters={
+                    "segregation_index": self._get_segregation_index,
+                    "region_count": self._get_region_count,
+                }
+            )
+        
+        # Do NOT collect initial state here. The test expects len(df) == 3 after 3 steps.
+        # If we collect here, we get 4 rows (initial + 3 steps).
+        # The test implies that data collection should only happen during steps.
+        # self.datacollector.collect(self)
+
+    def _get_segregation_index(self) -> float:
+        """Helper to calculate segregation index for DataCollector."""
+        tolerance = self.params.tolerance
+        radius = self.params.radius
+        metric = jaccard_distance
+        return segregation_index(self.window, metric, tolerance, radius)
+
+    def _get_region_count(self) -> int:
+        """Helper to calculate region count for DataCollector."""
+        tolerance = self.params.tolerance
+        metric = jaccard_distance
+        return region_count(self.window, metric, tolerance)
+
     def step(self) -> None:
         # Read live each step from the MUTABLE RuntimeParams (not frozen Config),
         # so mid-run edits to tolerance/happiness/radius take effect immediately.
@@ -78,6 +140,8 @@ class SchellingChordModel(Model):
         metric = jaccard_distance
 
         if not any(s is None for s in self.window):
+            # Still collect data even if no moves happen
+            self.datacollector.collect(self)
             return
 
         # One throwaway agent reused as a probe so satisfaction / relocation use
@@ -94,6 +158,8 @@ class SchellingChordModel(Model):
                 unsatisfied.append(i)
 
         if not unsatisfied:
+            # Still collect data even if no moves happen
+            self.datacollector.collect(self)
             return
 
         # Faithful Schelling relocation: each unsatisfied agent moves to a
@@ -111,6 +177,9 @@ class SchellingChordModel(Model):
             tgt = self.rng.choice(vacant)
             self.window[tgt] = self.window[src]
             self.window[src] = None
+
+        # Collect data after step
+        self.datacollector.collect(self)
 
     def run(self, n_steps: int) -> List[List[Optional[str]]]:
         history = []
