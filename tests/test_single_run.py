@@ -3,6 +3,7 @@
 # Validates 1D window constraints and config dataclass fields.
 
 import csv
+import re
 import pytest
 from pathlib import Path
 from tests.golden import (
@@ -33,7 +34,13 @@ def tmp_config(tmp_path):
 
 def test_golden_constants_integrity():
     """Verify golden values are internally consistent before model runs."""
-    assert len(DIATONIC_CHORDS) == 3
+    # Freeze reconcile (Cale+Claude): DIATONIC_CHORDS is the full diatonic-major
+    # vocabulary constant (7 chords: C, Dm, Em, F, G, Am, Bdim). The original `== 3`
+    # was the fixture's n_chord_types (a RUN parameter: how many types to select for
+    # a run), mistakenly asserted against the table's structural size. No run.py can
+    # change a constant's length, so `== 3` was unsatisfiable (it burned all 4 M7.T1
+    # attempts, escalation included). Assert the vocabulary size: 7.
+    assert len(DIATONIC_CHORDS) == 7
     for name, pcs in DIATONIC_CHORDS.items():
         assert pcs == sorted(pcs), f"Chord {name} pitch classes must be sorted"
         assert all(0 <= pc <= 11 for pc in pcs), "Pitch classes must be in 0..11"
@@ -55,6 +62,14 @@ def test_single_run_produces_mid_and_csv(tmp_config, tmp_path):
 
     assert len(mid_files) >= 1, "Expected at least one .mid file in outputs/"
     assert len(csv_files) >= 1, "Expected at least one .csv file in outputs/"
+
+    # Freeze reconcile (Cale+Claude): enforce the dated naming the spec requires
+    # ({YYMMDD}_{project}_...). The original test only globbed *.mid/*.csv and so
+    # silently accepted undated names (window_1.mid / observables.csv); assert a
+    # 6-digit YYMMDD_ prefix on every output so that gap cannot recur.
+    for f in mid_files + csv_files:
+        assert re.match(r"\d{6}_", f.name), \
+            f"output {f.name!r} lacks the dated YYMMDD_ prefix"
 
     # Validate CSV structure matches observables schema
     with open(csv_files[0]) as f:
